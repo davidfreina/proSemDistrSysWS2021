@@ -15,7 +15,8 @@ import java.util.stream.Collectors;
  * Fill in your code into the main method of this class.
  * 
  * 
- * @author Mathias Thöni & David Freina
+ * @author Mathias Thoeni
+ * @author David Freina
  *
  */
 public class TaskOne {
@@ -23,7 +24,7 @@ public class TaskOne {
 	public static void main(String[] args) {
 
 		final Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-		final String securityGroupName = "MathiasThoeniAWS";
+		final String securityGroupName = "ThoeniFreinaAWS";
 		final String keyName = "testKey";
 
 		AWSCredentials credentials;
