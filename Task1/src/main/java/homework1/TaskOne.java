@@ -5,7 +5,6 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.*;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -15,9 +14,11 @@ import java.util.stream.Collectors;
  * Fill in your code into the main method of this class.
  *
  *
- * @author Mathias Thöni & David Freina
+ * @author Mathias Thoeni
+ * @author David Freina
  *
  */
+
 public class TaskOne {
 
 	public static void main(String[] args) {
