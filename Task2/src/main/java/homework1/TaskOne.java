@@ -90,17 +90,17 @@ public class TaskOne {
 
 
         // Create three threads for parallel execution
-        //Thread fullFib = new Thread(() -> logger.info("Full took: " + calculateFib(instanceIps.get(0), keyPath, calcFibFile, inputFullFile, outputFullFile, logger) + "ms"));
+        Thread fullFib = new Thread(() -> logger.info("Full took: " + calculateFib(instanceIps.get(0), keyPath, calcFibFile, inputFullFile, outputFullFile, logger) + "ms"));
         Thread halfOneFib = new Thread(() -> logger.info("Half one took: " + calculateFib(instanceIps.get(1), keyPath, calcFibFile, inputHalfOneFile, outputHalfOneFile, logger) + "ms"));
         Thread halfTwoFib = new Thread(() -> logger.info("Half two took: " + calculateFib(instanceIps.get(2), keyPath, calcFibFile, inputHalfTwoFile, outputHalfTwoFile, logger) + "ms"));
 
         // Start the execution on every thread.
-        //fullFib.start();
+        fullFib.start();
         halfOneFib.start();
         halfTwoFib.start();
 
         // Wait for every thread to finish before terminating the instances.
-        //fullFib.join();
+        fullFib.join();
         halfOneFib.join();
         halfTwoFib.join();
 
