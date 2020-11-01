@@ -5,7 +5,6 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.*;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -13,18 +12,19 @@ import java.util.stream.Collectors;
 
 /**
  * Fill in your code into the main method of this class.
- * 
- * 
+ *
+ *
  * @author Mathias Thoeni
  * @author David Freina
  *
  */
+
 public class TaskOne {
 
 	public static void main(String[] args) {
 
 		final Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-		final String securityGroupName = "ThoeniFreinaAWS";
+		final String securityGroupName = "MathiasThoeniAWS";
 		final String keyName = "testKey";
 
 		AWSCredentials credentials;
@@ -98,6 +98,7 @@ public class TaskOne {
 				.withSecurityGroups(securityGroupName);
 
 		long start = System.currentTimeMillis();
+		long end = 1;
 
 		RunInstancesResult result = amazonEC2Client.runInstances(runInstancesRequest);
 
@@ -107,15 +108,29 @@ public class TaskOne {
 				.map(Instance::getInstanceId)
 				.collect(Collectors.toList());
 
-		DescribeInstanceStatusRequest statusRequest = new DescribeInstanceStatusRequest().withInstanceIds(instanceIds);
-
-		DescribeInstanceStatusResult describeInstanceStatusResult = amazonEC2Client.describeInstanceStatus(statusRequest);
-
-		if(describeInstanceStatusResult.getInstanceStatuses().get(0).getInstanceState().getName().equals(InstanceStateName.Running.toString())){
-			
+		try{
+			Thread.sleep(3000);
+		}
+		catch(InterruptedException e){
+			logger.info("Thread interrupted while waiting!");
 		}
 
-		long end = System.currentTimeMillis();
+		DescribeInstancesRequest statusRequest = new DescribeInstancesRequest().withInstanceIds(instanceIds);
+
+		while(true) {
+			DescribeInstancesResult describeInstanceStatusResult = amazonEC2Client.describeInstances(statusRequest);
+
+			if (describeInstanceStatusResult.getReservations().get(0).getInstances()
+					.get(0)
+					.getState()
+					.getName()
+					.equals(InstanceStateName.Running.toString())) {
+
+				end = System.currentTimeMillis();
+				break;
+			}
+		}
+
 
 		logger.info("Time elapsed: " + (end-start));
 
