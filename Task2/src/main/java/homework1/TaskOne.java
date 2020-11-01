@@ -73,6 +73,13 @@ public class TaskOne {
 
 		List<Address> addressList = amazonEC2Client.describeAddresses().getAddresses();
 
+		String instanceId = instanceIds.get(0);
+		try {
+			AWS_Utils.sendSSHCommandToInstance(instanceId, keyFingerprint, "ls", logger, 10);
+		}
+		catch(Exception e){
+			logger.severe("Could not send command to instance with ID: " + instanceId);
+		}
 		end = System.currentTimeMillis();
 
 		logger.info("Time elapsed: " + (end-start));
