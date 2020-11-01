@@ -67,8 +67,8 @@ Half two (24-47) took: 262805ms
 
 ### Best-Split
 
-The last test was splitting the numbers so that we would get almost the same times for half one and half two therefore lowering the overall time to the minimum.
+The last test was splitting the numbers so that we would get almost the same times for half one and half two therefore lowering the overall time to the minimum. We think that we came pretty close to the optimal solution here.
 
-Half one (1-40,47) took: 171192ms
+Half one (42,44-46) took: 142920ms
 
-Half two (41-46) took: 114430ms
+Half two (1-41,43,47) took: 141903ms

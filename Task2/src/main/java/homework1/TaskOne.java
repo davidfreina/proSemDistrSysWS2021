@@ -68,15 +68,15 @@ public class TaskOne {
                 .map(Instance::getInstanceId)
                 .collect(Collectors.toList());
 
+        logger.info("Waiting for all instances to be running...");
         try {
             amazonEC2Client.waiters().instanceRunning().run(new WaiterParameters<>(new DescribeInstancesRequest().withInstanceIds(instanceIds)));
         } catch (WaiterTimedOutException waiterTimedOutException) {
             logger.severe("Could not detect all instances are running!");
         }
 
-
+        // For some reason we had to wait for the instances to have status ok because otherwise we got a 'Connection refused' when connecting with ssh
         logger.info("Waiting for instance status to be ok...");
-
         try {
             amazonEC2Client.waiters().instanceStatusOk().run(new WaiterParameters<>(new DescribeInstanceStatusRequest().withInstanceIds(instanceIds)));
         } catch (WaiterTimedOutException waiterTimedOutException) {
@@ -84,43 +84,29 @@ public class TaskOne {
         }
 
         logger.info("Getting Instance IPs...");
-
         DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest().withInstanceIds(instanceIds);
-
         List<String> instanceIps =
 				amazonEC2Client.describeInstances(describeInstancesRequest).getReservations().stream().map(Reservation::getInstances).flatMap(List::stream).map(Instance::getPublicIpAddress).collect(Collectors.toList());
 
+
+        // Create three threads for parallel execution
         //Thread fullFib = new Thread(() -> logger.info("Full took: " + calculateFib(instanceIps.get(0), keyPath, calcFibFile, inputFullFile, outputFullFile, logger) + "ms"));
         Thread halfOneFib = new Thread(() -> logger.info("Half one took: " + calculateFib(instanceIps.get(1), keyPath, calcFibFile, inputHalfOneFile, outputHalfOneFile, logger) + "ms"));
         Thread halfTwoFib = new Thread(() -> logger.info("Half two took: " + calculateFib(instanceIps.get(2), keyPath, calcFibFile, inputHalfTwoFile, outputHalfTwoFile, logger) + "ms"));
 
-
+        // Start the execution on every thread.
         //fullFib.start();
         halfOneFib.start();
         halfTwoFib.start();
 
-        /*
-        for (int i = 0; i < instanceIps.size(); i++) {
-            String ipAddress = instanceIps.get(i);
-            logger.info(ipAddress);
-            if (i == 0)
-                logger.info("Full took: " + calculateFib(ipAddress, keyPath, calcFibFile, inputFullFile, outputFullFile, logger) + "ms");
-            else if (i == 1)
-                logger.info("Half one took: " + calculateFib(ipAddress, keyPath, calcFibFile, inputHalfOneFile, outputHalfOneFile, logger) + "ms");
-            else
-                logger.info("Half two took: " + calculateFib(ipAddress, keyPath, calcFibFile, inputHalfTwoFile, outputHalfTwoFile, logger) + "ms");
-        }
-        */
-
+        // Wait for every thread to finish before terminating the instances.
         //fullFib.join();
         halfOneFib.join();
         halfTwoFib.join();
 
         logger.info("Waiting for instances to change state to terminated...");
-
         TerminateInstancesRequest terminateInstancesRequest = new TerminateInstancesRequest(instanceIds);
         amazonEC2Client.terminateInstances(terminateInstancesRequest);
-
         try {
             amazonEC2Client.waiters().instanceTerminated().run(new WaiterParameters<>(new DescribeInstancesRequest().withInstanceIds(instanceIds)));
             logger.info("Terminated all instances. Exiting...");
@@ -129,6 +115,7 @@ public class TaskOne {
             System.exit(-1);
         }
     }
+
 
 
     private static long calculateFib(String ipAddress, String keyPath, String calcFibFile, String inputFile, String outputFile, Logger logger) {
