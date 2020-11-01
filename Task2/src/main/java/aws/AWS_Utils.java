@@ -92,9 +92,6 @@ public class AWS_Utils {
             } else {
                 channelExec.sendSignal("2");
             }
-
-            String responseString = new String(responseStream.toByteArray());
-            logger.info(responseString);
         } finally {
             if (session != null)
                 session.disconnect();
@@ -103,7 +100,7 @@ public class AWS_Utils {
         }
     }
 
-    public static void sendFileToInstance(String instanceIp, String keyFingerprint, String command, String path) throws Exception {
+    public static void sendFileToInstance(String instanceIp, String keyFingerprint, String command, String path, Logger logger) throws Exception {
 
         Session session = null;
         ChannelExec channelExec = null;
@@ -124,8 +121,9 @@ public class AWS_Utils {
 
             channelExec.connect();
 
-            if (checkAck(in) != 0) {
-                System.exit(0);
+            if (in.read() != 0) {
+                logger.severe("File upload failed!");
+                System.exit(-1);
             }
 
             File file = new File(path);
@@ -142,8 +140,9 @@ public class AWS_Utils {
             out.write(command.getBytes());
             out.flush();
 
-            if (checkAck(in) != 0) {
-                System.exit(0);
+            if (in.read() != 0) {
+                logger.severe("File upload failed!");
+                System.exit(-1);
             }
 
             fileInputStream = new FileInputStream(path);
@@ -159,8 +158,9 @@ public class AWS_Utils {
             out.write(buf, 0, 1);
             out.flush();
 
-            if (checkAck(in) != 0) {
-                System.exit(0);
+            if (in.read() != 0) {
+                logger.severe("File upload failed!");
+                System.exit(-1);
             }
 
             out.close();
@@ -174,7 +174,7 @@ public class AWS_Utils {
         }
     }
 
-    public static void getFileFromInstance(String instanceIp, String keyFingerprint, String command, String path) throws Exception {
+    public static void getFileFromInstance(String instanceIp, String keyFingerprint, String command, String path, Logger logger) throws Exception {
 
         Session session = null;
         ChannelExec channelExec = null;
@@ -203,7 +203,7 @@ public class AWS_Utils {
             out.write(buf, 0, 1);
             out.flush();
 
-            // read '0644 '
+            // read 'C0644 '
             in.read(buf, 0, 6);
 
             long filesize = 0L;
@@ -249,6 +249,11 @@ public class AWS_Utils {
                     break;
             }
 
+            if (in.read() != 0) {
+                logger.severe("File download failed!");
+                System.exit(-1);
+            }
+
             // send '\0'
             buf[0] = 0;
             out.write(buf, 0, 1);
@@ -262,32 +267,5 @@ public class AWS_Utils {
             if (fileOutputStream != null)
                 fileOutputStream.close();
         }
-    }
-
-    private static int checkAck(InputStream in) throws IOException {
-        int b = in.read();
-        // b may be 0 for success,
-        //          1 for error,
-        //          2 for fatal error,
-        //         -1
-        if (b == 0) return b;
-        if (b == -1) return b;
-
-        if (b == 1 || b == 2) {
-            StringBuffer sb = new StringBuffer();
-            int c;
-            do {
-                c = in.read();
-                sb.append((char) c);
-            }
-            while (c != '\n');
-            if (b == 1) { // error
-                System.out.print(sb.toString());
-            }
-            if (b == 2) { // fatal error
-                System.out.print(sb.toString());
-            }
-        }
-        return b;
     }
 }

@@ -90,12 +90,12 @@ public class TaskOne {
         List<String> instanceIps =
 				amazonEC2Client.describeInstances(describeInstancesRequest).getReservations().stream().map(Reservation::getInstances).flatMap(List::stream).map(Instance::getPublicIpAddress).collect(Collectors.toList());
 
-        Thread fullFib = new Thread(() -> logger.info("Full took: " + calculateFib(instanceIps.get(0), keyPath, calcFibFile, inputFullFile, outputFullFile, logger) + "ms"));
+        //Thread fullFib = new Thread(() -> logger.info("Full took: " + calculateFib(instanceIps.get(0), keyPath, calcFibFile, inputFullFile, outputFullFile, logger) + "ms"));
         Thread halfOneFib = new Thread(() -> logger.info("Half one took: " + calculateFib(instanceIps.get(1), keyPath, calcFibFile, inputHalfOneFile, outputHalfOneFile, logger) + "ms"));
         Thread halfTwoFib = new Thread(() -> logger.info("Half two took: " + calculateFib(instanceIps.get(2), keyPath, calcFibFile, inputHalfTwoFile, outputHalfTwoFile, logger) + "ms"));
 
 
-        fullFib.start();
+        //fullFib.start();
         halfOneFib.start();
         halfTwoFib.start();
 
@@ -112,7 +112,7 @@ public class TaskOne {
         }
         */
 
-        fullFib.join();
+        //fullFib.join();
         halfOneFib.join();
         halfTwoFib.join();
 
@@ -141,9 +141,9 @@ public class TaskOne {
 
         try {
             logger.info("Sending calc_fib.jar to instance with IP: " + ipAddress);
-            AWS_Utils.sendFileToInstance(ipAddress, keyPath, "scp -t calc_fib.jar", calcFibFile);
+            AWS_Utils.sendFileToInstance(ipAddress, keyPath, "scp -t calc_fib.jar", calcFibFile, logger);
             logger.info("Sending " + fileName + " to instance with IP: " + ipAddress);
-            AWS_Utils.sendFileToInstance(ipAddress, keyPath, "scp -t " + fileName, inputFile);
+            AWS_Utils.sendFileToInstance(ipAddress, keyPath, "scp -t " + fileName, inputFile, logger);
         } catch (Exception e) {
             logger.severe("Could not send file to instance with IP: " + ipAddress);
             logger.severe(e.toString());
@@ -159,7 +159,7 @@ public class TaskOne {
         }
         try {
             logger.info("Getting " + outputFileName + " from instance with IP: " + ipAddress);
-            AWS_Utils.getFileFromInstance(ipAddress, keyPath, "scp -f output.csv", outputFile);
+            AWS_Utils.getFileFromInstance(ipAddress, keyPath, "scp -f output.csv", outputFile, logger);
         } catch (Exception e) {
             logger.severe("Could not get file from instance with IP: " + ipAddress);
             logger.severe(e.toString());
