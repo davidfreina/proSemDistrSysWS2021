@@ -24,6 +24,7 @@ public class TaskOne {
         final Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
         final String securityGroupName = "ThoeniFreinaAWSAllowSSH";
         final String keyName = "thoeni-freina-key";
+        final String[] commands = {"sudo yum install java-1.8.0-openjdk -y", "java -jar calc_fib.jar input_full.csv", "ls -lah"};
 
         ProfileCredentialsProvider profileCredentialsProvider = new ProfileCredentialsProvider();
         if (profileCredentialsProvider.getCredentials() == null) {
@@ -78,11 +79,14 @@ public class TaskOne {
 
         instanceIps.forEach(ipAddress -> {
             logger.info(ipAddress);
-            try {
-                AWS_Utils.sendSSHCommandToInstance(ipAddress, "~/.ssh/thoeni-freina-key.pem", "ls -lah", logger, 10);
-            } catch (Exception e) {
-                logger.severe("Could not send command to instance with IP: " + ipAddress);
-                logger.severe(e.toString());
+            for(String command : commands) {
+                try {
+                    logger.info("Sending command " + command + " to instance with IP: " + ipAddress);
+                    AWS_Utils.sendSSHCommandToInstance(ipAddress, "~/.ssh/thoeni-freina-key.pem", command, logger, 10);
+                } catch (Exception e) {
+                    logger.severe("Could not send command to instance with IP: " + ipAddress);
+                    logger.severe(e.toString());
+                }
             }
         });
 
