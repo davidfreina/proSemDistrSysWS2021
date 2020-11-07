@@ -183,98 +183,40 @@ public class AWSUtils {
 
     }
 
-    public static void getFileFromInstance(String instanceIp, String keyFingerprint, String command, String path) throws Exception {
+    public static void getFileFromInstance(String instanceIp, String keyPath, String path) throws Exception {
 
         Session session = null;
-        ChannelExec channelExec = null;
-        FileOutputStream fileOutputStream = null;
+        ChannelSftp channelSftp = null;
 
         try {
             JSch jsch = new JSch();
             JSch.setConfig("StrictHostKeyChecking", "no");
-            jsch.addIdentity(keyFingerprint);
+            jsch.addIdentity(keyPath);
             session = jsch.getSession("ec2-user", instanceIp, 22);
             session.connect();
 
-            channelExec = (ChannelExec) session.openChannel("exec");
-            channelExec.setCommand(command);
+            channelSftp = (ChannelSftp) session.openChannel("sftp");
 
-            // get I/O streams for remote scp
-            OutputStream out = channelExec.getOutputStream();
-            InputStream in = channelExec.getInputStream();
+            logger.info(path);
 
-            channelExec.connect();
+            channelSftp.connect();
 
-            byte[] buf = new byte[1024];
-
-            // send '\0'
-            buf[0] = 0;
-            out.write(buf, 0, 1);
-            out.flush();
-
-            // read 'C0644 '
-            in.read(buf, 0, 6);
-
-            long filesize = 0L;
-            // filesize must be positive and after filesize is a whitespace
-            while (in.read(buf, 0, 1) >= 0 && buf[0] != ' ') {
-                // read filesize byte by byte and subtract ascii value of 0 to get correct numbers, multiply by 10
-                // for every decimal position
-                filesize = filesize * 10L + (long) (buf[0] - '0');
-            }
-
-            String fileName = null;
-            for (int i = 0; ; i++) {
-                in.read(buf, i, 1);
-                // 0x0a is hexadecimal for \n
-                if (buf[i] == (byte) 0x0a) {
-                    fileName = new String(buf, 0, i);
-                    break;
-                }
-            }
-
-            // send '\0'
-            buf[0] = 0;
-            out.write(buf, 0, 1);
-            out.flush();
-
-            fileOutputStream = new FileOutputStream(path);
-            // if buf is to small for the whole file we get chunks with maxSize
-            int maxSize;
-            while (true) {
-                if (buf.length < filesize)
-                    maxSize = buf.length;
-                else
-                    maxSize = (int) filesize;
-                maxSize = in.read(buf, 0, maxSize);
-                if (maxSize < 0) {
-                    // error
-                    break;
-                }
-                fileOutputStream.write(buf, 0, maxSize);
-                filesize -= maxSize;
-                // After reading the whole file we break out of the loop
-                if (filesize == 0L)
-                    break;
-            }
-
-            if (in.read() != 0) {
-                logger.severe("File download failed!");
-                System.exit(-1);
-            }
-
-            // send '\0'
-            buf[0] = 0;
-            out.write(buf, 0, 1);
-            out.flush();
-
+            channelSftp.get(path, path);
+        } catch (NullPointerException e) {
+            logger.severe("Error!");
+            e.printStackTrace();
+            System.exit(-1);
+        } catch (SftpException e) {
+            logger.severe("SFTP download unsuccessful!");
+            e.printStackTrace();
+            System.exit(-1);
+        } catch (JSchException e) {
+            logger.severe("SSH connection failed!");
+            e.printStackTrace();
+            System.exit(-1);
         } finally {
-            if (session != null)
-                session.disconnect();
-            if (channelExec != null)
-                channelExec.disconnect();
-            if (fileOutputStream != null)
-                fileOutputStream.close();
+            if(channelSftp != null)
+                channelSftp.disconnect();
         }
     }
 }

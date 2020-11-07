@@ -25,12 +25,11 @@ public class TaskThree {
 	static final String KEY_NAME = "thoeni-freina-key-task3";
 	static final String KEY_PATH = KEY_NAME + ".pem";
 	static final String CALC_FIB_FILE = "calc_fib.jar";
+	static final String DATA_FILE = "input_full.csv";
+	static final String OUTPUT_FILE = "output.csv";
+	static final String DOCKER_IMAGE_NAME = "mathiasthoeni/calc_fib:task3v2";
 
 	public static void main(String[] args) {
-
-		final String inputFullFile = "input_full.csv";
-		final String outputFullFile = "output_full.csv";
-
 
 		ProfileCredentialsProvider profileCredentialsProvider = new ProfileCredentialsProvider();
 		if (profileCredentialsProvider.getCredentials() == null) {
@@ -84,7 +83,7 @@ public class TaskThree {
 				amazonEC2Client.describeInstances(describeInstancesRequest).getReservations().stream().map(Reservation::getInstances).flatMap(List::stream).map(Instance::getPublicIpAddress).collect(Collectors.toList());
 
 		//instanceIps.forEach(instanceIp -> new Thread(() -> logger.info("Full took: " + calculateFib(instanceIp, inputFullFile, outputFullFile) + "ms")));
-		logger.info("Full took: " + calculateFib(instanceIps.get(0), inputFullFile, outputFullFile) + "ms");
+		logger.info("Full took: " + calculateFib(instanceIps.get(0), DATA_FILE, OUTPUT_FILE) + "ms");
 
 		logger.info("Waiting for instances to change state to terminated...");
 		TerminateInstancesRequest terminateInstancesRequest = new TerminateInstancesRequest(instanceIds);
@@ -103,14 +102,12 @@ public class TaskThree {
 
 		long start = System.currentTimeMillis();
 
-		String fileName = inputFile.substring(inputFile.lastIndexOf('/') + 1);
-		String outputFileName = outputFile.substring(outputFile.indexOf('/') + 1);
-		final String[] commands = {"sudo yum install -y -q java-1.8.0-openjdk" ,"java -jar calc_fib.jar " + fileName};
+		final String[] commands = {"sudo amazon-linux-extras install docker", "sudo service docker start", "sudo docker pull " + DOCKER_IMAGE_NAME, "sudo docker run -v /home/ec2-user:/workdir --rm " + DOCKER_IMAGE_NAME};
 
 		try {
 			logger.info("Sending calc_fib.jar to instance with IP: " + ipAddress);
 			AWSUtils.sendFileToInstance(ipAddress, KEY_PATH, CALC_FIB_FILE);
-			logger.info("Sending " + fileName + " to instance with IP: " + ipAddress);
+			logger.info("Sending " + inputFile + " to instance with IP: " + ipAddress);
 			AWSUtils.sendFileToInstance(ipAddress, KEY_PATH, inputFile);
 		} catch (Exception e) {
 			logger.severe("Could not send file to instance with IP: " + ipAddress);
@@ -128,8 +125,8 @@ public class TaskThree {
 			}
 		}
 		try {
-			logger.info("Getting " + outputFileName + " from instance with IP: " + ipAddress);
-			AWSUtils.getFileFromInstance(ipAddress, KEY_PATH, "scp -f output.csv", outputFile);
+			logger.info("Getting " + outputFile + " from instance with IP: " + ipAddress);
+			AWSUtils.getFileFromInstance(ipAddress, KEY_PATH, outputFile);
 		} catch (Exception e) {
 			logger.severe("Could not get file from instance with IP: " + ipAddress);
 			logger.severe(e.toString());
