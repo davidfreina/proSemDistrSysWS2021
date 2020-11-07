@@ -12,9 +12,14 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
 
+/**
+ * @author David Freina
+ * @author Mathias Thoeni
+ */
+
 public class AWSUtils {
     static final Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-    //using PosixFilePermission to set file permissions 777
+    // using PosixFilePermission to set file permissions 400
     static final Set<PosixFilePermission> perms = new HashSet<PosixFilePermission>(Collections.singletonList(PosixFilePermission.OWNER_READ));
 
     public static void createSecurityGroup(String securityGroupName, AmazonEC2Client amazonEC2Client) {
@@ -151,8 +156,6 @@ public class AWSUtils {
             session.connect();
 
             channelSftp = (ChannelSftp) session.openChannel("sftp");
-
-            logger.info(path);
 
             inputFile = new File(path);
             fileInputStream = new FileInputStream(inputFile);
