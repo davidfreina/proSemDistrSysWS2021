@@ -2,6 +2,8 @@ package aws;
 
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.*;
+import com.amazonaws.waiters.WaiterParameters;
+import com.amazonaws.waiters.WaiterTimedOutException;
 import com.jcraft.jsch.*;
 
 import java.io.*;
@@ -9,8 +11,15 @@ import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+/**
+ * @author David Freina
+ * @author Mathias Thoeni
+ */
 
 public class AWSUtils {
     static final Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
@@ -137,7 +146,7 @@ public class AWSUtils {
         }
     }
 
-    public static void sendFileToInstance(String instanceIp, String keyPath, String path) {
+    public static void sendFileToInstance(String instanceIp, String keyPath, String sourcePath, String destinationPath) {
         Session session = null;
         ChannelSftp channelSftp = null;
         FileInputStream fileInputStream = null;
@@ -152,14 +161,12 @@ public class AWSUtils {
 
             channelSftp = (ChannelSftp) session.openChannel("sftp");
 
-            logger.info(path);
-
-            inputFile = new File(path);
+            inputFile = new File(sourcePath);
             fileInputStream = new FileInputStream(inputFile);
 
             channelSftp.connect();
 
-            channelSftp.put(fileInputStream, path);
+            channelSftp.put(fileInputStream, destinationPath);
         } catch (NullPointerException e) {
             logger.severe("Error!");
             e.printStackTrace();
@@ -218,5 +225,64 @@ public class AWSUtils {
             if(channelSftp != null)
                 channelSftp.disconnect();
         }
+    }
+
+    public static TerminateInstancesResult terminateInstances(AmazonEC2Client amazonEC2Client, List<String> instanceIds){
+        TerminateInstancesResult result = null;
+        try {
+            TerminateInstancesRequest terminateInstancesRequest = new TerminateInstancesRequest(instanceIds);
+            result = amazonEC2Client.terminateInstances(terminateInstancesRequest);
+
+            amazonEC2Client.waiters().instanceTerminated().run(new WaiterParameters<>(new DescribeInstancesRequest().withInstanceIds(instanceIds)));
+            logger.info("Terminated all instances. Exiting...");
+            return result;
+        } catch (WaiterTimedOutException waiterTimedOutException) {
+            logger.severe("Could not terminate all instances!");
+            return result;
+        }
+    }
+
+    public static RunInstancesResult runInstances(AmazonEC2Client amazonEC2Client, String imageId, InstanceType instanceType, int minCount, int maxCount, String keyName, String securityGroupName){
+
+        RunInstancesRequest runInstancesRequest = new RunInstancesRequest();
+        runInstancesRequest.withImageId(imageId)
+                .withInstanceType(instanceType)
+                .withMinCount(minCount)
+                .withMaxCount(maxCount)
+                .withKeyName(keyName)
+                .withSecurityGroups(securityGroupName);
+
+        return amazonEC2Client.runInstances(runInstancesRequest);
+    }
+
+    public static RunInstancesResult runInstances(AmazonEC2Client amazonEC2Client, int minCount, int maxCount, String keyName, String securityGroupName){
+
+        RunInstancesRequest runInstancesRequest = new RunInstancesRequest();
+        runInstancesRequest.withImageId("ami-0947d2ba12ee1ff75")
+                .withInstanceType(InstanceType.T2Micro)
+                .withMinCount(minCount)
+                .withMaxCount(maxCount)
+                .withKeyName(keyName)
+                .withSecurityGroups(securityGroupName);
+
+        return amazonEC2Client.runInstances(runInstancesRequest);
+    }
+
+    public static List<String> getInstanceIps(AmazonEC2Client amazonEC2Client, List<String> instanceIds){
+        DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest().withInstanceIds(instanceIds);
+        return amazonEC2Client.describeInstances(describeInstancesRequest).getReservations().stream().map(Reservation::getInstances).flatMap(List::stream).map(Instance::getPublicIpAddress).collect(Collectors.toList());
+    }
+
+    public static List<String> getInstanceIps(AmazonEC2Client amazonEC2Client){
+        DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest();
+        return amazonEC2Client.describeInstances(describeInstancesRequest).getReservations().stream().map(Reservation::getInstances).flatMap(List::stream).map(Instance::getPublicIpAddress).collect(Collectors.toList());
+    }
+
+    public static void waitForInstanceStatusOk(AmazonEC2Client amazonEC2Client, List<String> instanceIds){
+        amazonEC2Client.waiters().instanceStatusOk().run(new WaiterParameters<>(new DescribeInstanceStatusRequest().withInstanceIds(instanceIds)));
+    }
+
+    public static void waitForInstanceRunning(AmazonEC2Client amazonEC2Client, List<String> instanceIds){
+        amazonEC2Client.waiters().instanceRunning().run(new WaiterParameters<>(new DescribeInstancesRequest().withInstanceIds(instanceIds)));
     }
 }
