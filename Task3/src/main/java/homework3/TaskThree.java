@@ -26,7 +26,7 @@ public class TaskThree {
 	static final String KEY_PATH = KEY_NAME + ".pem";
 	static final String DATA_FILE = "input_full.csv";
 	static final String OUTPUT_FILE = "output.csv";
-	static final String DOCKER_IMAGE_NAME = "davidfreina/calc_fib:v1";
+	static final String DOCKER_IMAGE_NAME = "mathiasthoeni/calc_fib:task3v5";
 	static final String[] COMMANDS = {"sudo amazon-linux-extras install docker", "sudo service docker start", "sudo docker pull " + DOCKER_IMAGE_NAME, "sudo docker run -v /home/ec2-user:/mount --rm " + DOCKER_IMAGE_NAME};
 
 
