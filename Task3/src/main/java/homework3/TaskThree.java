@@ -4,7 +4,6 @@ import aws.AWSUtils;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.*;
-import com.amazonaws.waiters.WaiterParameters;
 import com.amazonaws.waiters.WaiterTimedOutException;
 
 import java.util.List;
@@ -24,10 +23,11 @@ public class TaskThree {
 	static final String SECURITY_GROUP_NAME = "ThoeniFreinaAWSAllowSSH";
 	static final String KEY_NAME = "thoeni-freina-key-task3";
 	static final String KEY_PATH = KEY_NAME + ".pem";
-	static final String CALC_FIB_FILE = "calc_fib.jar";
 	static final String DATA_FILE = "input_full.csv";
 	static final String OUTPUT_FILE = "output.csv";
-	static final String DOCKER_IMAGE_NAME = "mathiasthoeni/calc_fib:task3v2";
+	static final String DOCKER_IMAGE_NAME = "mathiasthoeni/calc_fib:task3v5";
+	static final String[] COMMANDS = {"sudo amazon-linux-extras install docker", "sudo service docker start", "sudo docker pull " + DOCKER_IMAGE_NAME, "sudo docker run -v /home/ec2-user:/mount --rm " + DOCKER_IMAGE_NAME};
+
 
 	public static void main(String[] args) {
 
@@ -45,16 +45,7 @@ public class TaskThree {
 
 		AWSUtils.generateKeyPair(KEY_NAME, amazonEC2Client);
 
-		RunInstancesRequest runInstancesRequest = new RunInstancesRequest();
-
-		runInstancesRequest.withImageId("ami-0947d2ba12ee1ff75")
-				.withInstanceType(InstanceType.T2Micro)
-				.withMinCount(1)
-				.withMaxCount(1)
-				.withKeyName(KEY_NAME)
-				.withSecurityGroups(SECURITY_GROUP_NAME);
-
-		RunInstancesResult result = amazonEC2Client.runInstances(runInstancesRequest);
+		RunInstancesResult result = AWSUtils.runInstances(amazonEC2Client, 1, 1, KEY_NAME, SECURITY_GROUP_NAME);
 
 		List<Instance> instances = result.getReservation().getInstances();
 
@@ -62,53 +53,40 @@ public class TaskThree {
 				.map(Instance::getInstanceId)
 				.collect(Collectors.toList());
 
-		logger.info("Waiting for all instances to be running...");
+		logger.info("Waiting for instance status to be running...");
 		try {
-			amazonEC2Client.waiters().instanceRunning().run(new WaiterParameters<>(new DescribeInstancesRequest().withInstanceIds(instanceIds)));
+			AWSUtils.waitForInstanceRunning(amazonEC2Client, instanceIds);
 		} catch (WaiterTimedOutException waiterTimedOutException) {
-			logger.severe("Could not detect all instances are running!");
+			logger.severe("Could not detect all instances as running!");
 		}
 
 		// For some reason we had to wait for the instances to have status ok because otherwise we got a 'Connection refused' when connecting with ssh
 		logger.info("Waiting for instance status to be ok...");
 		try {
-			amazonEC2Client.waiters().instanceStatusOk().run(new WaiterParameters<>(new DescribeInstanceStatusRequest().withInstanceIds(instanceIds)));
+			AWSUtils.waitForInstanceStatusOk(amazonEC2Client, instanceIds);
 		} catch (WaiterTimedOutException waiterTimedOutException) {
 			logger.severe("Could not detect all instances as ok!");
 		}
 
 		logger.info("Getting Instance IPs...");
-		DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest().withInstanceIds(instanceIds);
-		List<String> instanceIps =
-				amazonEC2Client.describeInstances(describeInstancesRequest).getReservations().stream().map(Reservation::getInstances).flatMap(List::stream).map(Instance::getPublicIpAddress).collect(Collectors.toList());
+		List<String> instanceIps = AWSUtils.getInstanceIps(amazonEC2Client, instanceIds);
 
 		//instanceIps.forEach(instanceIp -> new Thread(() -> logger.info("Full took: " + calculateFib(instanceIp, inputFullFile, outputFullFile) + "ms")));
-		logger.info("Full took: " + calculateFib(instanceIps.get(0), DATA_FILE, OUTPUT_FILE) + "ms");
+		logger.info("Full took: " + calculateFib(instanceIps.get(0), DATA_FILE, OUTPUT_FILE, COMMANDS) + "ms");
 
 		logger.info("Waiting for instances to change state to terminated...");
-		TerminateInstancesRequest terminateInstancesRequest = new TerminateInstancesRequest(instanceIds);
-		amazonEC2Client.terminateInstances(terminateInstancesRequest);
-		try {
-			amazonEC2Client.waiters().instanceTerminated().run(new WaiterParameters<>(new DescribeInstancesRequest().withInstanceIds(instanceIds)));
-			logger.info("Terminated all instances. Exiting...");
-		} catch (WaiterTimedOutException waiterTimedOutException) {
-			logger.severe("Could not terminate all instances!");
-			System.exit(-1);
-		}
-
+		AWSUtils.terminateInstances(amazonEC2Client, instanceIds);
 	}
 
-	private static long calculateFib(String ipAddress, String inputFile, String outputFile) {
+	private static long calculateFib(String ipAddress, String inputFile, String outputFile, String[] commands) {
 
 		long start = System.currentTimeMillis();
 
-		final String[] commands = {"sudo amazon-linux-extras install docker", "sudo service docker start", "sudo docker pull " + DOCKER_IMAGE_NAME, "sudo docker run -v /home/ec2-user:/workdir --rm " + DOCKER_IMAGE_NAME};
-
 		try {
-			logger.info("Sending calc_fib.jar to instance with IP: " + ipAddress);
-			AWSUtils.sendFileToInstance(ipAddress, KEY_PATH, CALC_FIB_FILE);
+//			logger.info("Sending calc_fib.jar to instance with IP: " + ipAddress);
+//			AWSUtils.sendFileToInstance(ipAddress, KEY_PATH, CALC_FIB_FILE);
 			logger.info("Sending " + inputFile + " to instance with IP: " + ipAddress);
-			AWSUtils.sendFileToInstance(ipAddress, KEY_PATH, inputFile);
+			AWSUtils.sendFileToInstance(ipAddress, KEY_PATH, inputFile, "input.csv");
 		} catch (Exception e) {
 			logger.severe("Could not send file to instance with IP: " + ipAddress);
 			logger.severe(e.toString());
