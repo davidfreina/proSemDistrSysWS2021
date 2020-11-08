@@ -6,6 +6,7 @@ import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.*;
 import com.amazonaws.waiters.WaiterTimedOutException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -25,7 +26,7 @@ public class TaskThree {
 	static final String KEY_PATH = KEY_NAME + ".pem";
 	static final String DATA_FILE = "input_full.csv";
 	static final String OUTPUT_FILE = "output.csv";
-	static final String DOCKER_IMAGE_NAME = "mathiasthoeni/calc_fib:task3v5";
+	static final String DOCKER_IMAGE_NAME = "davidfreina/calc_fib:v1";
 	static final String[] COMMANDS = {"sudo amazon-linux-extras install docker", "sudo service docker start", "sudo docker pull " + DOCKER_IMAGE_NAME, "sudo docker run -v /home/ec2-user:/mount --rm " + DOCKER_IMAGE_NAME};
 
 
@@ -45,7 +46,7 @@ public class TaskThree {
 
 		AWSUtils.generateKeyPair(KEY_NAME, amazonEC2Client);
 
-		RunInstancesResult result = AWSUtils.runInstances(amazonEC2Client, 1, 1, KEY_NAME, SECURITY_GROUP_NAME);
+		RunInstancesResult result = AWSUtils.runInstances(amazonEC2Client, 5, 5, KEY_NAME, SECURITY_GROUP_NAME);
 
 		List<Instance> instances = result.getReservation().getInstances();
 
@@ -69,10 +70,27 @@ public class TaskThree {
 		}
 
 		logger.info("Getting Instance IPs...");
+
 		List<String> instanceIps = AWSUtils.getInstanceIps(amazonEC2Client, instanceIds);
 
-		//instanceIps.forEach(instanceIp -> new Thread(() -> logger.info("Full took: " + calculateFib(instanceIp, inputFullFile, outputFullFile) + "ms")));
-		logger.info("Full took: " + calculateFib(instanceIps.get(0), DATA_FILE, OUTPUT_FILE, COMMANDS) + "ms");
+		List<Thread> threadList = new ArrayList<>();
+		List<Long> times = new ArrayList<>();
+		instanceIps.forEach(instanceIp -> {
+			Thread thread = new Thread(() -> times.add(calculateFib(instanceIp, DATA_FILE, OUTPUT_FILE, COMMANDS)));
+			threadList.add(thread);
+		});
+
+		threadList.forEach(Thread::start);
+
+		threadList.forEach(thread -> {
+			try {
+				thread.join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		});
+
+		logger.info("Statistics: " + times.stream().mapToLong((x) -> x).summaryStatistics());
 
 		logger.info("Waiting for instances to change state to terminated...");
 		AWSUtils.terminateInstances(amazonEC2Client, instanceIds);
@@ -83,8 +101,6 @@ public class TaskThree {
 		long start = System.currentTimeMillis();
 
 		try {
-//			logger.info("Sending calc_fib.jar to instance with IP: " + ipAddress);
-//			AWSUtils.sendFileToInstance(ipAddress, KEY_PATH, CALC_FIB_FILE);
 			logger.info("Sending " + inputFile + " to instance with IP: " + ipAddress);
 			AWSUtils.sendFileToInstance(ipAddress, KEY_PATH, inputFile, "input.csv");
 		} catch (Exception e) {
